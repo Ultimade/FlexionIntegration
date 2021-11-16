@@ -4,7 +4,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.flexionmobile.codingchallenge.integration.Integration;
 import com.flexionmobile.codingchallenge.integration.Purchase;
 import com.google.gson.Gson;
-import org.apache.http.HttpResponse;
 import org.apache.http.client.ClientProtocolException;
 import org.apache.http.client.ResponseHandler;
 import org.apache.http.client.methods.CloseableHttpResponse;
@@ -13,8 +12,6 @@ import org.apache.http.client.methods.HttpPost;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
-
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -24,6 +21,7 @@ import java.util.List;
  */
 public class IntegrationImpl implements Integration {
 
+    //HTTP link not secure better to use HTTPS
     private final String targetUrl = "http://sandbox.flexionmobile.com/javachallenge/rest";
 
     @Override
@@ -32,8 +30,11 @@ public class IntegrationImpl implements Integration {
 
         String entity = this.restPostCommunication(targetUrl+path);
         Gson gson = new Gson();
-        PurchaseImpl purchase = gson.fromJson(entity, PurchaseImpl.class);
-        return purchase;
+        if (entity != null){
+            return gson.fromJson(entity, PurchaseImpl.class);
+        }else {
+            return null;
+        }
     }
 
     @Override
@@ -41,15 +42,14 @@ public class IntegrationImpl implements Integration {
         String path = "/developer/Willinger%20Zsolt/all";
 
         String entity = this.restGetCommunication(targetUrl+path);
+        if (entity == null){
+            return null;
+        }
         try {
 
             ObjectMapper objectMapper = new ObjectMapper();
             Purchases purchases = objectMapper.readValue(entity, Purchases.class);
-            List<Purchase> pList = new ArrayList<Purchase>();
-            for (PurchaseImpl p: purchases.getPurchases()) {
-                pList.add(p);
-            }
-            return pList;
+            return new ArrayList<>(purchases.getPurchases());
 
         }catch (Exception ex){
             ex.printStackTrace();
@@ -73,8 +73,13 @@ public class IntegrationImpl implements Integration {
 
             CloseableHttpResponse response = client.execute(httpPost);
             String entity = "";
-            if (response.getEntity() != null){
-                entity = EntityUtils.toString(response.getEntity());
+            int status = response.getStatusLine().getStatusCode();
+            if (status >= 200 && status < 300) {
+                if (response.getEntity() != null){
+                    entity = EntityUtils.toString(response.getEntity());
+                }
+            } else {
+                entity = null;
             }
             client.close();
             return entity;
@@ -91,17 +96,12 @@ public class IntegrationImpl implements Integration {
 
 
 
-            ResponseHandler<String> responseHandler = new ResponseHandler<String>() {
-                @Override
-                public String handleResponse(
-                        final HttpResponse response) throws ClientProtocolException, IOException {
-                    int status = response.getStatusLine().getStatusCode();
-                    if (status >= 200 && status < 300) {
-                        String entity =EntityUtils.toString(response.getEntity());
-                        return entity;
-                    } else {
-                        throw new ClientProtocolException("Unexpected response status: " + status);
-                    }
+            ResponseHandler<String> responseHandler = response -> {
+                int status = response.getStatusLine().getStatusCode();
+                if (status >= 200 && status < 300) {
+                    return EntityUtils.toString(response.getEntity());
+                } else {
+                    throw new ClientProtocolException("Unexpected response status: " + status);
                 }
             };
             String responseBody = httpclient.execute(httpget, responseHandler);
