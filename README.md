@@ -18,5 +18,5 @@ Consume purchase description wrongly
 api url:
 http://sandbox.flexionmobile.com/javachallenge/rest/developer/{developerId}/consume/{purchaseId}
 purchaseId String An ID of an existing Purchase
-but in teh interface api request the Purchase object:
+but in the interface api request the Purchase object:
 void consume(Purchase var1);
